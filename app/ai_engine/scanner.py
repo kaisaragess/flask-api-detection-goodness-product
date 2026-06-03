@@ -1,36 +1,51 @@
-from ultralytics import YOLO
 import os
+from inference_sdk import InferenceHTTPClient
 
 class FruitScanner:
     def __init__(self):
-        # Path ke model best.pt di folder app/models
-        # Pastikan file best.pt memang ada di path ini
-        self.model_path = os.path.join("app", "models", "best.pt")
+        self.api_key = os.getenv("ROBOFLOW_API_KEY")
+        if not self.api_key:
+            print("WARNING: ROBOFLOW_API_KEY tidak ditemukan di .env!")
         
-        # Memuat model YOLO
-        if not os.path.exists(self.model_path):
-            raise FileNotFoundError(f"Model file tidak ditemukan di: {self.model_path}")
+        self.client = InferenceHTTPClient(
+            api_url="https://detect.roboflow.com",
+            api_key=self.api_key or "DUMMY_KEY"
+        )
         
-        self.model = YOLO(self.model_path)
+        # Ganti dengan versi model Anda di Roboflow jika bukan versi 1
+        self.model_id = "apple-grading-sni/1"
 
     def scan(self, image_path):
         """
-        Fungsi untuk menjalankan deteksi pada gambar.
+        Fungsi untuk menjalankan deteksi via Roboflow API.
         image_path: path ke file gambar yang akan di-scan.
         """
-        # Menjalankan deteksi dengan batas awal sangat rendah untuk menangkap anomali
-        results = self.model.predict(source=image_path, conf=0.01)
-        
-        # Mengolah hasil menjadi format yang lebih mudah dibaca
         detections = []
-        for result in results:
-            for box in result.boxes:
-                # Mengambil koordinat, confidence score, dan nama class
-                x1, y1, x2, y2 = box.xyxy[0].tolist()
-                conf = float(box.conf[0])
-                cls = int(box.cls[0])
-                label = result.names[cls]
+        
+        if not self.api_key:
+            print("ERROR: ROBOFLOW_API_KEY belum disetel!")
+            return {"detections": []}
+
+        try:
+            # Confidence 0.01 agar menangkap semua prediksi sekecil apapun (mirip config lokal kita)
+            result = self.client.infer(image_path, model_id=self.model_id, confidence=0.01)
+            predictions = result.get('predictions', [])
+            
+            for pred in predictions:
+                label = pred.get('class', 'Unknown')
+                conf = float(pred.get('confidence', 0.0))
                 
+                # Inference API mengembalikan x_center, y_center, width, height
+                x_center = float(pred.get('x', 0))
+                y_center = float(pred.get('y', 0))
+                width = float(pred.get('width', 0))
+                height = float(pred.get('height', 0))
+                
+                x1 = x_center - (width / 2)
+                y1 = y_center - (height / 2)
+                x2 = x_center + (width / 2)
+                y2 = y_center + (height / 2)
+
                 if conf < 0.25:
                     label = "Anomali"
 
@@ -39,10 +54,11 @@ class FruitScanner:
                     "confidence": conf,
                     "box": [x1, y1, x2, y2]
                 })
-        
-        # LOGIKA ANOMALI:
-        # Jika array detections kosong (tidak ada objek sama sekali),
-        # maka kita asumsikan objek tersebut adalah Anomali.
+
+        except Exception as e:
+            print(f"Error Roboflow Inference: {e}")
+            
+        # LOGIKA ANOMALI KOSONG:
         if len(detections) == 0:
             detections.append({
                 "label": "Anomali",
@@ -54,12 +70,12 @@ class FruitScanner:
             "detections": detections
         }
 
-# Contoh cara penggunaan jika ingin dites langsung
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv()
     try:
         scanner = FruitScanner()
-        # Ganti dengan nama file gambar contoh di komputermu
-        hasil = scanner.scan("data/train/images/contoh_buah.jpg")
-        print(hasil)
+        # hasil = scanner.scan("data/train/images/contoh_buah.jpg")
+        # print(hasil)
     except Exception as e:
         print(f"Error: {e}")
