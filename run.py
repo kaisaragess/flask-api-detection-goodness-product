@@ -1,5 +1,6 @@
 import os
 from flask import Flask, jsonify
+from flask_cors import CORS
 from dotenv import load_dotenv
 from app.models import mongo
 from app.routes.scan import scan_bp 
@@ -10,6 +11,7 @@ load_dotenv()
 
 def create_app():
     app = Flask(__name__)
+    CORS(app) # Mengizinkan frontend (Edge/Chrome) menembak API ini
 
     # Konfigurasi dari Environment Variables
     # Menggunakan nilai default jika variabel tidak ditemukan di .env
