@@ -13,14 +13,14 @@ def get_overview():
 
     pipeline = [
         {"$match": {"company_name": company}},
-        {"$group": {"_id": "$prediction", "count": {"$sum": 1}, "total_weight": {"$sum": {"$toDouble": "$weight"}}}}
+        {"$group": {"_id": "$prediction", "count": {"$sum": 1}, "total_items": {"$sum": {"$toInt": "$item_count"}}}}
     ]
     stats = list(get_scan_logs_col().aggregate(pipeline))
     
     # Menghitung food waste dengan penanganan data null/kosong yang aman
-    food_waste = sum(float(item.get('total_weight', 0)) for item in stats if "bad" in str(item.get('_id', '')).lower())
+    food_waste = sum(int(item.get('total_items', 0)) for item in stats if "bad" in str(item.get('_id', '')).lower())
     
-    return jsonify({"stats": stats, "food_waste_saved_kg": round(food_waste, 2)})
+    return jsonify({"stats": stats, "food_waste_items": int(food_waste)})
 
 # --- 2. Manajemen Inventaris (FIFO & Alert) ---
 @dashboard_bp.route('/inventory', methods=['GET'])
@@ -42,7 +42,7 @@ def get_inventory():
         data.append({
             "id": str(item['_id']),
             "prediction": item.get('prediction', 'Unknown'),
-            "weight": item.get('weight', 0),
+            "item_count": item.get('item_count', 0),
             "status": item.get('status', 'pending_review'),
             "date": item['timestamp'].strftime("%Y-%m-%d") if isinstance(item.get('timestamp'), datetime) else "N/A",
             "alert": alert

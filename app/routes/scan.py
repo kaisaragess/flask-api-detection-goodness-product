@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, send_file
 from app.ai_engine.scanner import FruitScanner 
-from app.models import get_scan_logs_col, get_users_col # Import get_users_col
+from app.models import get_scan_logs_col
 import os
 import uuid
 import cv2
@@ -31,37 +31,48 @@ def scan_fruit():
     if 'file' not in request.files: return jsonify({"error": "Tidak ada file"}), 400
     
     file = request.files['file']
-    username = request.form.get('username')
-    company_name = request.form.get('company_name')
-    weight = float(request.form.get('weight', 0))
-
-    # --- LOGIKA AMBIL EMAIL OTOMATIS DARI DB USERS ---
-    user_record = get_users_col().find_one({"username": username})
-    operator_email = user_record.get('email', 'unknown@email.com') if user_record else "unknown@email.com"
-    # --------------------------------------------------
+    username = request.form.get('username', 'Unknown User')
+    company_name = request.form.get('company_name', 'Unknown Company')
+    item_count = int(request.form.get('item_count', 0))
+    operator_email = request.form.get('operator_email', 'unknown@email.com')
 
     file_path = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4()}.jpg")
     file.save(file_path)
 
     try:
-        results = scanner.scan(file_path) 
-        if results and isinstance(results, list):
-            draw_boxes(file_path, results)
-            has_bad = any('bad' in res.get('label', '').lower() for res in results)
+        import base64
+        scan_output = scanner.scan(file_path) 
+        detections = scan_output.get("detections", [])
+        metrics = scan_output.get("metrics", {})
+        
+        if detections and isinstance(detections, list):
+            draw_boxes(file_path, detections)
+            has_bad = any('bad' in res.get('label', '').lower() or 'anomali' in res.get('label', '').lower() for res in detections)
             
             log_data = {
                 "company_name": company_name, 
                 "username": username,
-                "operator_email": operator_email, # Email sekarang otomatis terisi
-                "weight": weight,
-                "prediction": results[0].get('label') if results else "Unknown",
+                "operator_email": operator_email,
+                "item_count": item_count,
+                "prediction": detections[0].get('label') if detections else "Unknown",
                 "is_safe": not has_bad, 
                 "timestamp": datetime.utcnow(),
-                "status": "pending_review" 
+                "status": "pending_review",
+                "metrics": metrics
             }
             get_scan_logs_col().insert_one(log_data)
             
-            return send_file(file_path, mimetype='image/jpeg')
+            with open(file_path, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+            
+            return jsonify({
+                "message": "Scan berhasil",
+                "prediction": log_data["prediction"],
+                "is_safe": log_data["is_safe"],
+                "detections": detections,
+                "metrics": metrics,
+                "image_base64": encoded_string
+            }), 200
         
         return jsonify({"error": "Tidak ada objek terdeteksi"}), 422
     except Exception as e:
