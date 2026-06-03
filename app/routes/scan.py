@@ -42,7 +42,6 @@ def scan_fruit():
         import base64
         scan_output = scanner.scan(file_path) 
         detections = scan_output.get("detections", [])
-        metrics = scan_output.get("metrics", {})
         
         if detections and isinstance(detections, list):
             draw_boxes(file_path, detections)
@@ -55,8 +54,7 @@ def scan_fruit():
                 "prediction": detections[0].get('label') if detections else "Unknown",
                 "is_safe": not has_bad, 
                 "timestamp": datetime.utcnow(),
-                "status": "pending_review",
-                "metrics": metrics
+                "status": "pending_review"
             }
             get_scan_logs_col().insert_one(log_data)
             
@@ -68,7 +66,6 @@ def scan_fruit():
                 "prediction": log_data["prediction"],
                 "is_safe": log_data["is_safe"],
                 "detections": detections,
-                "metrics": metrics,
                 "image_base64": encoded_string
             }), 200
         

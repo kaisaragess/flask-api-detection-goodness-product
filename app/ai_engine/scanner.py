@@ -50,17 +50,8 @@ class FruitScanner:
                 "box": []
             })
             
-        # Hardcode Metrik Evaluasi Model (Nilai statis)
-        metrics = {
-            "precision": 0.92,
-            "recall": 0.89,
-            "f1_score": 0.90,
-            "cohens_kappa": 0.85
-        }
-            
         return {
-            "detections": detections,
-            "metrics": metrics
+            "detections": detections
         }
 
 # Contoh cara penggunaan jika ingin dites langsung
