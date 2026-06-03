@@ -12,8 +12,8 @@ class FruitScanner:
             api_key=self.api_key or "DUMMY_KEY"
         )
         
-        # Ganti dengan versi model Anda di Roboflow jika bukan versi 1
-        self.model_id = "apple-grading-sni/3"
+        self.workspace_name = "kaisar-ages-querio"
+        self.workflow_id = "apple-grading-workflow-1780503810619"
 
     def scan(self, image_path):
         """
@@ -27,9 +27,29 @@ class FruitScanner:
             return {"detections": []}
 
         try:
-            # Confidence 0.01 agar menangkap semua prediksi sekecil apapun (mirip config lokal kita)
-            result = self.client.infer(image_path, model_id=self.model_id, confidence=0.01)
-            predictions = result.get('predictions', [])
+            # Panggil Roboflow Workflow
+            result = self.client.run_workflow(
+                workspace_name=self.workspace_name,
+                workflow_id=self.workflow_id,
+                images={"image": image_path},
+                use_cache=True 
+            )
+            
+            predictions = []
+            
+            # Workflow mengembalikan struktur yang kompleks (biasanya list of dicts). Kita cari array prediksinya:
+            if isinstance(result, list) and len(result) > 0:
+                first_result = result[0]
+                # Menelusuri semua key di output workflow untuk mencari array prediksi
+                for key, value in first_result.items():
+                    if isinstance(value, dict) and 'predictions' in value:
+                        predictions = value['predictions']
+                        break
+                    elif isinstance(value, list) and len(value) > 0 and 'class' in value[0] and 'confidence' in value[0]:
+                        predictions = value
+                        break
+            elif isinstance(result, dict) and 'predictions' in result:
+                predictions = result['predictions']
             
             for pred in predictions:
                 label = pred.get('class', 'Unknown')
