@@ -8,12 +8,12 @@ class FruitScanner:
             print("WARNING: ROBOFLOW_API_KEY tidak ditemukan di .env!")
         
         self.client = InferenceHTTPClient(
-            api_url="https://detect.roboflow.com",
+            api_url="https://serverless.roboflow.com",
             api_key=self.api_key or "DUMMY_KEY"
         )
         
         # Ganti dengan versi model Anda di Roboflow jika bukan versi 1
-        self.model_id = "apple-grading-sni/1"
+        self.model_id = "apple-grading-sni/3"
 
     def scan(self, image_path):
         """
