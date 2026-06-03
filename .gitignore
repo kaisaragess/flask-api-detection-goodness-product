@@ -20,7 +20,7 @@ data/
 runs/
 uploads/
 *.pt
-
+!app/models/best.pt
 # --- IDE / Editor ---
 .vscode/
 .idea/

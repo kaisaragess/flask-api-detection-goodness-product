@@ -37,6 +37,16 @@ class FruitScanner:
                     "box": [x1, y1, x2, y2]
                 })
         
+        # LOGIKA ANOMALI:
+        # Jika array detections kosong (tidak ada dari 6 kelas yang dikenali),
+        # maka kita asumsikan objek tersebut adalah Anomali.
+        if len(detections) == 0:
+            detections.append({
+                "label": "Anomali",
+                "confidence": 0.0,
+                "box": []
+            })
+            
         return detections
 
 # Contoh cara penggunaan jika ingin dites langsung
