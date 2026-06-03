@@ -1,13 +1,13 @@
 import os
+from dotenv import load_dotenv
+# Load environment variables pertama kali sebelum import module lain!
+load_dotenv()
+
 from flask import Flask, jsonify
 from flask_cors import CORS
-from dotenv import load_dotenv
 from app.models import mongo
 from app.routes.scan import scan_bp 
 from app.routes.dashboard import dashboard_bp
-
-# Load environment variables dari file .env
-load_dotenv()
 
 def create_app():
     app = Flask(__name__)
