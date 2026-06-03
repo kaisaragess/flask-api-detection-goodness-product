@@ -18,7 +18,8 @@ def draw_boxes(image_path, results):
         box = res.get('box', []) 
         if not box or len(box) < 4: continue
         
-        is_good = 'good' in label
+        # Jika bukan busuk/anomali, maka anggap aman (kotak hijau), selain itu kotak merah
+        is_good = 'busuk' not in label and 'anomali' not in label and 'rotten' not in label
         color = (0, 255, 0) if is_good else (0, 0, 255)
         
         cv2.rectangle(img, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), color, 3)
@@ -38,14 +39,29 @@ def scan_fruit():
     file_path = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4()}.jpg")
     file.save(file_path)
 
+    CLASS_TRANSLATIONS = {
+        "100%_ripeness": "Matang Sempurna (100%)",
+        "75%_ripeness": "Hampir Matang (75%)",
+        "50%_ripeness": "Setengah Matang (50%)",
+        "20%_ripeness": "Mentah (20%)",
+        "rotten_apple": "Apel Busuk"
+    }
+
     try:
         import base64
         scan_output = scanner.scan(file_path) 
         detections = scan_output.get("detections", [])
         
         if detections and isinstance(detections, list):
+            # Translate label dari Roboflow ke Bahasa Indonesia
+            for det in detections:
+                raw_label = det.get('label', '')
+                det['label'] = CLASS_TRANSLATIONS.get(raw_label, raw_label)
+            
             draw_boxes(file_path, detections)
-            has_bad = any('bad' in res.get('label', '').lower() or 'anomali' in res.get('label', '').lower() for res in detections)
+            
+            # Cek apakah ada yang berstatus bahaya (Busuk/Anomali)
+            has_bad = any('bad' in res.get('label', '').lower() or 'anomali' in res.get('label', '').lower() or 'busuk' in res.get('label', '').lower() for res in detections)
             
             log_data = {
                 "username": username,
