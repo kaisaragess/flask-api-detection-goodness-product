@@ -12,8 +12,7 @@ class FruitScanner:
             api_key=self.api_key or "DUMMY_KEY"
         )
         
-        self.workspace_name = "kaisar-ages-querio"
-        self.workflow_id = "apple-grading-workflow-1780503810619"
+        self.model_id = "apple-grading-sni/3"
 
     def scan(self, image_path):
         """
@@ -27,53 +26,32 @@ class FruitScanner:
             return {"detections": []}
 
         try:
-            # Panggil Roboflow Workflow
-            result = self.client.run_workflow(
-                workspace_name=self.workspace_name,
-                workflow_id=self.workflow_id,
-                images={"image": image_path},
-                use_cache=True 
-            )
+            # Panggil Roboflow SDK untuk model klasifikasi
+            result = self.client.infer(image_path, model_id=self.model_id)
             
-            predictions = []
+            # Model apple-grading-sni/3 mengembalikan dictionary classification
+            predictions = result.get('predictions', {})
             
-            # Workflow mengembalikan struktur yang kompleks (biasanya list of dicts). Kita cari array prediksinya:
-            if isinstance(result, list) and len(result) > 0:
-                first_result = result[0]
-                # Menelusuri semua key di output workflow untuk mencari array prediksi
-                for key, value in first_result.items():
-                    if isinstance(value, dict) and 'predictions' in value:
-                        predictions = value['predictions']
-                        break
-                    elif isinstance(value, list) and len(value) > 0 and 'class' in value[0] and 'confidence' in value[0]:
-                        predictions = value
-                        break
-            elif isinstance(result, dict) and 'predictions' in result:
-                predictions = result['predictions']
+            # Cari prediksi dengan confidence paling tinggi (Top 1)
+            best_label = "Anomali"
+            best_conf = 0.0
             
-            for pred in predictions:
-                label = pred.get('class', 'Unknown')
-                conf = float(pred.get('confidence', 0.0))
+            if isinstance(predictions, dict):
+                for label, data in predictions.items():
+                    conf = float(data.get('confidence', 0.0))
+                    if conf > best_conf:
+                        best_conf = conf
+                        best_label = label
+                        
+            # Cek jika confidence terlalu rendah, maka anggap anomali
+            if best_conf < 0.25:
+                best_label = "Anomali"
                 
-                # Inference API mengembalikan x_center, y_center, width, height
-                x_center = float(pred.get('x', 0))
-                y_center = float(pred.get('y', 0))
-                width = float(pred.get('width', 0))
-                height = float(pred.get('height', 0))
-                
-                x1 = x_center - (width / 2)
-                y1 = y_center - (height / 2)
-                x2 = x_center + (width / 2)
-                y2 = y_center + (height / 2)
-
-                if conf < 0.25:
-                    label = "Anomali"
-
-                detections.append({
-                    "label": label,
-                    "confidence": conf,
-                    "box": [x1, y1, x2, y2]
-                })
+            detections.append({
+                "label": best_label,
+                "confidence": best_conf,
+                "box": [] # Tidak ada koordinat (ini klasifikasi)
+            })
 
         except Exception as e:
             print(f"Error Roboflow Inference: {e}")
