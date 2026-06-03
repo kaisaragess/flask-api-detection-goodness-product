@@ -12,7 +12,7 @@ class FruitScanner:
             api_key=self.api_key or "DUMMY_KEY"
         )
         
-        self.model_id = "apple-grading-sni/3"
+        self.model_id = "apple-ripeness-pj4d3/3"
 
     def scan(self, image_path):
         """
@@ -26,32 +26,36 @@ class FruitScanner:
             return {"detections": []}
 
         try:
-            # Panggil Roboflow SDK untuk model klasifikasi
+            # Panggil Roboflow SDK untuk model deteksi objek (Object Detection)
             result = self.client.infer(image_path, model_id=self.model_id)
             
-            # Model apple-grading-sni/3 mengembalikan dictionary classification
-            predictions = result.get('predictions', {})
+            # Model deteksi objek mengembalikan list of dicts pada key 'predictions'
+            predictions = result.get('predictions', [])
             
-            # Cari prediksi dengan confidence paling tinggi (Top 1)
-            best_label = "Anomali"
-            best_conf = 0.0
-            
-            if isinstance(predictions, dict):
-                for label, data in predictions.items():
-                    conf = float(data.get('confidence', 0.0))
-                    if conf > best_conf:
-                        best_conf = conf
-                        best_label = label
-                        
-            # Cek jika confidence terlalu rendah, maka anggap anomali
-            if best_conf < 0.25:
-                best_label = "Anomali"
+            for pred in predictions:
+                label = pred.get('class', 'Unknown')
+                conf = float(pred.get('confidence', 0.0))
                 
-            detections.append({
-                "label": best_label,
-                "confidence": best_conf,
-                "box": [] # Tidak ada koordinat (ini klasifikasi)
-            })
+                # Inference API mengembalikan x_center, y_center, width, height
+                x_center = float(pred.get('x', 0))
+                y_center = float(pred.get('y', 0))
+                width = float(pred.get('width', 0))
+                height = float(pred.get('height', 0))
+                
+                x1 = x_center - (width / 2)
+                y1 = y_center - (height / 2)
+                x2 = x_center + (width / 2)
+                y2 = y_center + (height / 2)
+
+                # Jika confidence terlalu rendah
+                if conf < 0.25:
+                    label = "Anomali"
+
+                detections.append({
+                    "label": label,
+                    "confidence": conf,
+                    "box": [x1, y1, x2, y2]
+                })
 
         except Exception as e:
             print(f"Error Roboflow Inference: {e}")
