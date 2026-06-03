@@ -32,7 +32,6 @@ def scan_fruit():
     
     file = request.files['file']
     username = request.form.get('username', 'Unknown User')
-    company_name = request.form.get('company_name', 'Unknown Company')
     item_count = int(request.form.get('item_count', 0))
     operator_email = request.form.get('operator_email', 'unknown@email.com')
 
@@ -50,7 +49,6 @@ def scan_fruit():
             has_bad = any('bad' in res.get('label', '').lower() or 'anomali' in res.get('label', '').lower() for res in detections)
             
             log_data = {
-                "company_name": company_name, 
                 "username": username,
                 "operator_email": operator_email,
                 "item_count": item_count,
